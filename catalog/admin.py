@@ -10,6 +10,18 @@ from .models import Book, Author, Genre, BookInstance, Language
 # admin.site.register(Genre)
 
 
+class BookInstanceInline(admin.TabularInline): 
+  model = BookInstance
+  extra = 0
+
+
+class BookInline(admin.StackedInline):
+  model = Book
+  extra = 0
+
+  filter_horizontal = ('genre',)
+
+
 @admin.register(Genre)
 class GenreAdmin(admin.ModelAdmin):
   list_display = ('name', 'book_count')
@@ -20,13 +32,6 @@ class LanguageAdmin(admin.ModelAdmin):
   list_display = ('name', 'book_count')
 
 
-class BookInline(admin.StackedInline):
-  model = Book
-  extra = 0
-
-  filter_horizontal = ('genre',)
-
-
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
   list_display = ('last_name', 'first_name', 'date_of_birth', 'date_of_death')
@@ -34,11 +39,6 @@ class AuthorAdmin(admin.ModelAdmin):
   fields = ['first_name', 'last_name', ('date_of_birth', 'date_of_death')]
   # exclude = ['date_of_death']
   inlines = [BookInline]
-
-
-class BookInstanceInline(admin.TabularInline): 
-  model = BookInstance
-  extra = 0
 
 
 @admin.register(Book)
