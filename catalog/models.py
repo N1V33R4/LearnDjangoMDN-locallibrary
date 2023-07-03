@@ -38,7 +38,7 @@ class Book(models.Model):
   language = models.ForeignKey("Language", on_delete=models.SET_NULL, null=True)
 
   class Meta:
-    ordering = ["author"]
+    ordering = ["title", "author"]
   
   def __str__(self):
     return self.title
@@ -96,7 +96,7 @@ class Author(models.Model):
     ordering = ["last_name", "first_name"]
 
   def get_absolute_url(self):
-    return reverse("author_detail", args=[str(self.id)]) # type: ignore
+    return reverse("author-detail", args=[str(self.id)]) # type: ignore
   
   def __str__(self):
     return f"{self.last_name}, {self.first_name}"

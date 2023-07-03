@@ -24,6 +24,8 @@ class BookInline(admin.StackedInline):
   model = Book
   extra = 0
 
+  filter_horizontal = ('genre',)
+
 
 @admin.register(Author)
 class AuthorAdmin(admin.ModelAdmin):
@@ -42,6 +44,7 @@ class BookInstanceInline(admin.TabularInline):
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
   list_display = ('title', 'author', 'display_genre')
+  filter_horizontal = ('genre',)
 
   inlines = [BookInstanceInline]
 
