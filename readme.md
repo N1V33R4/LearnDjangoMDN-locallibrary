@@ -567,3 +567,71 @@ add pagination block in [base](./catalog/templates/base_generic.html), right aft
 
 
 # Sessions framework
+set, get arbitrary data on per-site-visitor basis  
+## What are sessions?
+What: mechanism for keeping track of "state" between site and particular browser.  
+How: place cookie in browser containing *session_id*, django uses that id to get session data stored in site database.  
+## Enable sessions
+`settings.py`
+```py
+INSTALLED_APPS = [
+  # …
+  'django.contrib.sessions',
+  # …
+
+MIDDLEWARE = [
+  # …
+  'django.contrib.sessions.middleware.SessionMiddleware',
+  # …
+```
+## Using sessions
+access via `request.session`, it's a dict
+```py
+my_car = request.session['my_car']
+my_car = request.session.get('my_car', 'mini')
+request.session['my_car'] = 'mini'
+del request.session['my_car']
+```
+> api include set, check expiry date, clear expired sessions from data store
+[Session docs](https://docs.djangoproject.com/en/4.2/topics/http/sessions/)
+## Save session data 
+django only save session to db when it's modified or deleted.  
+It doesn't save when updating nested data, so you can use `request.session.modified=True`
+> OR you can force session save on every request via adding to `settings.py`, `SESSION_SAVE_EVERY_REQUEST=True`.  
+
+## Visit count
+get, set
+```py
+num_visits = request.session.get('num_visits', 0)
+request.session['num_visits'] = num_visits + 1
+
+context = {
+  ...
+  'num_visits': num_visits,
+}
+```
+display in index page
+```html
+<p>
+  You have visited this page {{ num_visits }} time{{ num_visits|pluralize }}.
+</p>
+```
+
+
+# User auth & permissions
+
+
+
+# Working with forms
+
+
+# Testing
+
+
+# Deploying
+
+
+# Web security
+
+
+# DIY mini blog

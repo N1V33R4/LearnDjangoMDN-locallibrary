@@ -13,6 +13,9 @@ def index(request):
   num_genres = Genre.objects.all().count()
   num_books_contain_guide = Book.objects.filter(title__icontains='guide').count()
 
+  num_visits = request.session.get('num_visits', 0)
+  request.session['num_visits'] = num_visits + 1
+
   context = {
     'num_books': num_books,
     'num_instances': num_instances,
@@ -20,6 +23,7 @@ def index(request):
     'num_authors': num_authors,
     'num_genres': num_genres,
     'num_books_contain_guide': num_books_contain_guide,
+    'num_visits': num_visits,
   }
 
   return render(request, 'index.html', context=context)
