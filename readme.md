@@ -619,10 +619,267 @@ display in index page
 
 
 # User auth & permissions
+django has built-in `Users` and `Groups`  
+> it's very generic, so use 3rd party libs for advanced, e.g. throttling attempts, oauth  
 
+Can build urls, forms, views, templates yourself or use stock. This tutorial uses stock.  
+
+## Enable authentication 
+like sessions, enable in `settings.py`
+```py
+'django.contrib.auth',
+'django.contrib.contenttypes',
+
+'django.contrib.auth.middleware.AuthenticationMiddleware',
+```
+
+## Create users & groups
+superman/super123123
+### Custom user
+In order to extend `User` model, you must create your own custom one.  
+**This must be done in 001_initial migration when starting project.** Because other tables depend on `User`.  
+
+## Setup auth views
+url mapping, views and forms have defaults, we need to provide templates
+### Url 
+Add to `urls.py`
+```py
+path('accounts/', include('django.contrib.auth.urls')),
+```
+Leads to following: 
+```
+accounts/ login/ [name='login']
+accounts/ logout/ [name='logout']
+accounts/ password_change/ [name='password_change']
+accounts/ password_change/done/ [name='password_change_done']
+accounts/ password_reset/ [name='password_reset']
+accounts/ password_reset/done/ [name='password_reset_done']
+accounts/ reset/<uidb64>/<token>/ [name='password_reset_confirm']
+accounts/ reset/done/ [name='password_reset_complete']
+```
+
+### Template dir
+In project root, `templates/registration/`, *not in app*
+Must also add template path in `settings.py`
+```py
+import os
+
+TEMPLATES = [
+  {
+    # …
+    'DIRS': [os.path.join(BASE_DIR, 'templates')],
+    'APP_DIRS': True,
+    # …
+```
+### Login template
+this uses django form handling code, discussed in next section  
+I have so many questions.  
+```html
+{% extends 'base_generic.html' %}
+
+{% block content %}
+  {% if form.errors %}
+    <p>Your username and password didn't match. Please try again.</p>
+  {% endif %}
+
+  {% if next %}
+    {% if user.is_authenticated %}
+      <p>Your account doesn't have access to this page. To proceed, please login with an account that has access.</p>
+    {% else %}
+      <p>Please login to see this page.</p>
+    {% endif %}
+  {% endif %}
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    <table>
+      <tr>
+        <td>{{ form.username.label_tag }}</td>
+        <td>{{ form.username }}</td>
+      </tr>
+      <tr>
+        <td>{{ form.password.label_tag }}</td>
+        <td>{{ form.password }}</td>
+      </tr>
+    </table>
+
+    <input type="submit" value="login">
+    <input type="hidden" name="next" value="{{ next }}">
+  </form>
+
+  <p><a href="{% url 'password_reset' %}">Lost password?</a></p>
+{% endblock content %}
+```
+
+After successful login, django will redirect user to `/accounts/profile` by default.  
+Can prevent this by adding in `settings.py`, `LOGIN_REDIRECT_URL = '/'`
+
+### Logout template
+if you go to `/accounts/logout`, user will be redirected to admin logout page.  
+Adding logged_out.html template will change that for some reason(?).  
+
+### Password reset template
+`password_reset_form.html`, form to allow user to enter email change password
+```html
+
+```
+#### Reset done
+`password_reset_done.html`, show after user entered email
+```html
+
+```
+#### Password reset email
+`password_reset_email.html`, template for the reset email
+```html
+Someone asked for password reset for email {{ email }}. Follow the link below: 
+{{ protocol }}://{{ domain }}{% url 'password_reset_confirm' uidb64=uid token=token %}
+```
+#### Password reset confirm
+`password_reset_confirm.html`, form to enter new password
+```html
+```
+#### Password reset complete
+`password_reset_complete.html`, after reset is successful
+```html
+```
+
+This tutorial doesn't cover email, so what was the point of me learning this???
+
+
+## Show stuff to authenticated users
+`{{ user }}` is passed to each template  
+has other methods:  
+- is_authenticated: 
+- get_username: 
+
+### Testing in templates  
+Sidebar changes: 
+```html
+<ul class="sidebar-nav">
+  …
+  {% if user.is_authenticated %}
+    <li>User: {{ user.get_username }}</li>
+    <li><a href="{% url 'logout' %}?next={{ request.path }}">Logout</a></li>
+  {% else %}
+    <li><a href="{% url 'login' %}?next={{ request.path }}">Login</a></li>
+  {% endif %}
+</ul>
+```
+`next` allows us to keep track of where to send users after they login/logout.  
+
+### Testing in views
+either your `@login_required` decorator or `request.user.is_authenticated`  
+for class-based, can use `LoginRequiredMixin`  
+- login_url: url to login form
+- redirect: where to redirect to after login, override `next`
+
+### Listing borrowed books
+If no custom User, can import User.  
+Add borrower to BookInstance and is_overdue property.  
+```py
+borrower = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+@property
+def is_overdue(self):
+  """Determines if the book is overdue based on due date and current date."""
+  return bool(self.due_back and date.today() > self.due_back)
+```
+View
+```py
+class LoanedBooksByUserListView(LoginRequiredMixin, generic.ListView):
+  """Generic class-based view listing books on loan to current user."""
+  model = BookInstance
+  template_name = 'bookinstance_list_borrowed_user.html'
+  paginate_by = 10
+
+  def get_queryset(self):
+    return (
+      BookInstance.objects.filter(borrower=self.request.user)
+        .filter(status__exact='o')
+        .order_by('due_back')
+    )
+```
+Url
+```py
+path('mybooks/', views.LoanedBooksByUserListView.as_view(), name='my-borrowed'),
+```
+Template
+```py
+{% extends 'base_generic.html' %}
+
+{% block content %}
+  <h1>Borrowed books</h1>
+
+  {% if bookinstance_list %}
+    <ul>
+      {% for bookinst in bookinstance_list %}
+        <li class="{% if bookinst.is_overdue %}text-danger{% endif %}">
+          <a href="{% url 'book-detail' bookinst.book.pk %}">{{ bookinst.book.title }}</a>
+          ({{ bookinst.due_back }})
+        </li>
+      {% endfor %}
+    </ul>
+
+  {% else %}
+    <p>There are no books borrowed.</p>
+  {% endif %}
+{% endblock content %}
+```
+
+### Permissions
+Can test add, change delete permissions on whole model, or on model instances (row-level?).  
+
+**Define permissions in Model**: in Meta of models
+```py
+class BookInstance(models.Model):
+  # …
+  class Meta:
+    # …
+    permissions = (("can_mark_returned", "Set book as returned"),)
+```
+Need to makemigrations and migrate again after creating permissions.  
+
+**Template**: {{ perms }} to check if user has specific permissions 
+```html
+{% if perms.catalog.can_mark_returned %}
+  <!-- We can mark a BookInstance as returned. -->
+  <!-- Perhaps add code to link to a "book return" view here. -->
+{% endif %}
+```
+**View**: use `@permission_required('app.permission')` or `PermissionRequiredMixin`
+```py
+from django.contrib.auth.decorators import permission_required
+
+@permission_required('catalog.can_mark_returned')
+@permission_required('catalog.can_edit')
+def my_view(request):
+  # …
+```
+```py
+from django.contrib.auth.mixins import PermissionRequiredMixin
+
+class MyView(PermissionRequiredMixin, View):
+  permission_required = 'catalog.can_mark_returned'
+  # Or multiple permissions
+  permission_required = ('catalog.can_mark_returned', 'catalog.can_edit')
+  # Note that 'catalog.can_edit' is just an example
+  # the catalog application doesn't have such permission!
+```
+
+Decorator will rediect to login if no permission. Add this to return 403
+```py
+@login_required
+@permission_required('catalog.can_mark_returned', raise_exception=True)
+```
+
+Note to self: when changing the name of a migrated permission, it just creates a new record of the fucking thing. Despite me deleting from the db.  
+
+Whatever the functionality is, it needs 3 things: Url, View and Template. Of course, the Model is needed to persist data too.  
+And of course, without rendering the link, how can users access it?  
 
 
 # Working with forms
+
 
 
 # Testing
