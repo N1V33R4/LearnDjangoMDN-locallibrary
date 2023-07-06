@@ -879,10 +879,248 @@ And of course, without rendering the link, how can users access it?
 
 
 # Working with forms
+create, update, delete using our own forms rather than admin page
+## Django form handling process
+![django-form](images/django-form.png)
+`Form` class, simplies form generation and data cleaning & validation. 
 
+## Renew-book using `Form` and function view
+Very flexible as we can add whatever fields and whatever validation we like.  
+
+Create form: `app/forms.py`
+```py
+from django import forms
+
+class RenewBookForm(forms.Form):
+  renewal_date = forms.DateField(help_text="Enter a date between now and 4 weeks (default 3).")
+```
+> DateField rendered with default widget: `DateInput`
+
+Fields:
+- BooleanField:
+- CharField:
+- ChoiceField:
+- TypedChoiceField:
+- DateField:
+- DecimalField:
+- DurationField:
+- EmailField:
+- FileField:
+- FilePathField:
+- FloatField:
+- ImageField:
+- IntegerField:
+- GenericIPAddressField:
+- MultipleChoiceField:
+- TypedMultipleChoiceField:
+- NullBooleanField:
+- RegexField:
+- SlugField:
+- TimeField:
+- UrlField:
+- UUIDField:
+- ComboField:
+- MultiValueField:
+- SplitDateTimeField:
+- ModelMultipleChoiceField:
+- ModelChoiceField:
+
+Common field arguments:
+- required: True by default
+- label: HTML label, captalize field name & replace _ with space by default
+- label_suffix: ':' display by default
+- initial: initial value
+- widget: widget to use, JS?
+- help_text: 
+- error_messages: list of error messages for the field
+- validators: list of functions to call to validate field(?)
+- localize: localization of form input data
+- disabled: displayed but its value cannot be edited
+
+Validation: one way is to override `clean_<fieldname>()`
+```py
+import datetime
+from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+
+
+class RenewBookForm(forms.Form):
+  renewal_date = forms.DateField(help_text="Enter a date between now and 4 weeks (default 3).")
+
+  def clean_renewal_date(self):
+    data = self.cleaned_data['renewal_date']
+
+    if data < datetime.date.today():
+      raise ValidationError(_('Invalid date - renewal in past'))
+    
+    if data > datetime.date.today() + datetime.timedelta(weeks=4):
+      raise ValidationError(_('Invalid date - renewal more than 4 weeks ahead'))
+    
+    return data
+```
+More on [validation](https://docs.djangoproject.com/en/4.2/ref/forms/validation/)  
+[Validate dependent fields](https://docs.djangoproject.com/en/4.2/ref/forms/validation/#validating-fields-with-clean)  
+
+Url:
+```py
+path('book/<uuid:pk>/renew/', views.renew_book_librarian, name='renew-book-librarian'),
+```
+View: handle post and get in one function
+```py
+@login_required
+@permission_required('catalog.can_mark_returned', raise_exception=True)
+def renew_book_librarian(request, pk): 
+  book_instance = get_object_or_404(BookInstance, pk)
+
+  if request.method == 'POST':
+    form = RenewBookForm(request.POST)
+    if form.is_valid():
+      book_instance.due_back = form.cleaned_data['renewal_date']
+      book_instance.save()
+
+      return HttpResponseRedirect(reverse('all-borrowed'))
+  else:
+    proposed_renewal_date = datetime.date.today() + datetime.timedelta(weeks=3)
+    form = RenewBookForm(initial={'renewal_date': proposed_renewal_date})
+
+  context = {
+    'form': form,
+    'book_instance': book_instance,
+  }
+
+  return render(request, 'book_renew_librarian.html', context)
+```
+Template: `book_renew_librarian.html`
+```html
+{% extends 'base_generic.html' %}
+
+{% block content %}
+  <h1>Renew: {{ book_instance.book.title }}</h1>
+  <p>Borrower: {{ book_instance.borrower }}</p>
+  <p {% if book_instance.is_overdue %}class="text-danger"{% endif %}>
+    Due date: {{ book_instance.due_back }}
+  </p>
+
+  <form action="" method="post">
+    {% csrf_token %}
+    <table>
+      {{ form.as_table }}
+    </table>
+    
+    <input type="submit" value="Submit">
+  </form>
+{% endblock content %}
+```
+> `form.as_table` renders the form as tr>td, there are other ways to render form
+
+*Other ways to use form template variable*: 
+Render whole form:
+- .as_ul:
+- .as_p:
+
+[Render fields manually](https://docs.djangoproject.com/en/4.2/topics/forms/#rendering-fields-manually): form.fieldname.~
+- .errors
+- .id_for_label
+- .help_text
+
+Add renew link: `bookinstance_list_all_borrowed.html`
+```html
+- <a href="{% url 'renew-book-librarian' bookinst.id %}">Renew</a> 
+```
+
+## `ModelForms`
+map form to single model, use Meta class to add options  
+Add dictionaries to change defaults provided by models  
+```py
+class RenewBookModelForm(forms.ModelForm):
+  def clean_due_back(self):
+    data = self.cleaned_data['renewal_date']
+
+    if data < datetime.date.today():
+      raise ValidationError(_('Invalid date - renewal in past'))
+    
+    if data > datetime.date.today() + datetime.timedelta(weeks=4):
+      raise ValidationError(_('Invalid date - renewal more than 4 weeks ahead'))
+    
+    return data
+
+
+  class Meta:
+    model = BookInstance
+    fields = ['due_back']
+    labels = {'due_back': _('Renewal date')}
+    help_texts = {'due_back': _('Enter a date between now and 4 weeks (default 3).')
+```
+
+## Generic editing views
+abstracts more, handles both view and form class  
+useful when needing more functionality than admin site  
+
+View: 
+```py
+class AuthorCreate(PermissionRequiredMixin, CreateView):
+  model = Author
+  permission_required = 'catalog.can_mark_returned'
+  fields = ['first_name', 'last_name', 'date_of_birth', 'date_of_death']
+  initial = {'date_of_death': '2020-11-06'}
+  template_name = 'author_form.html'
+
+
+class AuthorUpdate(PermissionRequiredMixin, UpdateView):
+  model = Author
+  permission_required = 'catalog.can_mark_returned'
+  fields = '__all__'
+  template_name = 'author_form.html'
+
+
+class AuthorDelete(PermissionRequiredMixin, DeleteView):
+  model = Author
+  permission_required = 'catalog.can_mark_returned'
+  success_url = reverse_lazy('authors')
+  template_name = 'author_confirm_delete.html'
+```
+Templates: create, update needs `model_name_form.html`
+delete needs `model_name_confirm_delete.html`
+```html
+{% extends "base_generic.html" %}
+
+{% block content %}
+<form action="" method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <input type="submit" value="Submit" />
+</form>
+{% endblock %}
+```
+```html
+{% extends "base_generic.html" %}
+
+{% block content %}
+
+<h1>Delete Author</h1>
+
+<p>Are you sure you want to delete the author: {{ author }}?</p>
+
+<form action="" method="POST">
+  {% csrf_token %}
+  <input type="submit" value="Yes, delete." />
+</form>
+
+{% endblock %}
+```
+Url: 
+```py
+path('author/create/', views.AuthorCreate.as_view(), name='author-create'),
+path('author/<int:pk>/update/', views.AuthorUpdate.as_view(), name='author-update'),
+path('author/<int:pk>/delete/', views.AuthorDelete.as_view(), name='author-delete'),
+```
 
 
 # Testing
+
 
 
 # Deploying
