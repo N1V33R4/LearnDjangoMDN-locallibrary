@@ -1120,7 +1120,99 @@ path('author/<int:pk>/delete/', views.AuthorDelete.as_view(), name='author-delet
 
 
 # Testing
+What: automated testing  
+Why: as your site gets bigger, the amount of things you have to test (permissions, validations) will increase.  
+- Automated tests will be faster, lower level, reliable 
 
+Types: 
+- Unit: class, function level
+- Regression: reproduce historic bugs
+- Integration: multiple components or whole site
+
+Test base classes: from `unittest`  
+- SimpleTestCase: no db
+- TransactionTestCase: 
+- TestCase: create new db
+- LiveServerTestCase: 
+
+What to test: what you define  
+e.g. verbose name, max length, custom validation, redirects, permissions, etc.  
+
+Test structure: in `app/tests/test_whatever.py`  
+Test methods: 
+- setUpTestData(cls): run once for the class, setup non-modified data
+- setUp(): run once every test method to provide clean data
+
+How to run tests: `py manage.py test`  
+Showing more test info: `py manage.py test --verbosity int`  
+can be 0, 1, 2, 3  
+
+Run tests in parallel: `py manage.py test --parallel auto`  
+or specify number of cores 
+
+Run specific tests: `py manage.py test catalog.tests.test_views.AuthorCreateViewTest`  
+can be as deep or as shallow as needed
+
+## Locallibrary tests
+### Test model
+Test fields and methods of a model.  
+
+_meta: to get data on fields   
+
+assertEqual vs. assertTrue: former tells you what the values are  
+### Test form
+Test custom validation  
+Where db isn't used, use `SimpleTestCase` instead
+### Test view
+Use django test `response.client`, get/post and see low-level HTTP to template rendering and context data.  
+`response.context` is useful for testing  
+
+**Test restricted view**: logged in  
+`self.client.login()`: simulate login  
+`self.assertRedirects()`: make sure redirect is right  
+`self.assertTemplateUsed()`: make sure right template is rendered  s
+```py
+self.assertRedirects(response, '/accounts/login/?next=/catalog/mybooks/')
+self.assertTemplateUsed(response, 'bookinstance_list_borrowed_user.html')
+```
+
+### Test view with form
+Test initial, display after fail validation, display after succeed  
+
+**Add permission**: programmatically
+```py
+from django.contrib.auth.models import User, Permission
+...
+permission = Permission.objects.get(name='Set book as returned')
+test_user2.user_permissions.add(permission)
+test_user2.save()
+```
+
+**Check permission**: by login and checking redirects when doing certain things  
+
+**Check form initials**: `response.context['form'].initial['field']`
+```py
+self.assertEqual(response.context['form'].initial['renewal_date'], date_3_weeks_in_future)
+```
+
+**Post with `client`**: 2nd arg is the form data
+```py
+response = self.client.post(reverse('renew-book-librarian', kwargs={'pk':self.test_bookinstance1.pk,}), {'renewal_date':valid_date_in_future})
+```
+
+**Check form errors**: `assertFormError()`, after post
+```py
+self.assertFormError(response, 'form', 'renewal_date', 'Invalid date - renewal in past')
+```
+
+### Test template
+Check if correct template name is called.  
+There's no test for way to test HTML output.  
+
+## Other testing tools
+`unittest` is what django uses. 
+- Coverage: shows you much your code is covered
+- Selenium: simulate a real browser
 
 
 # Deploying
