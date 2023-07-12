@@ -1334,7 +1334,23 @@ ALLOWED_HOSTS = ['web-production-3640.up.railway.app', '127.0.0.1']
 CSRF_TRUSTED_ORIGINS = ['https://web-production-3640.up.railway.app']
 # CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
 ```
-**Provision postgresql**: 
+**Provision postgresql**: spin up a postgres instance alongside the app  
+To connect from app, add `DATABASE_URL` variable to web app, via reference variable(new)
+
+**Install railway cli**:
+```shell
+npm i -g @railway/cli
+```
+**Configure superuser**: can't do it with Procfile 'cuz railway doesn't give us direct terminal access  
+Can connect to prod db directly from local and run that cmd instead. Kinda annoying.  
+```shell
+railway login
+railway link
+railway run python manage.py createsuperuser
+```
+link is to use prod variables for local project(?)  
+
+
 
 # Web security
 
