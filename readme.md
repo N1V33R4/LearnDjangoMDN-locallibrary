@@ -1327,7 +1327,13 @@ python-3.11.2
 ```
 
 ### Deploy on railway
-
+**Set ALLOWED_HOSTS & CSRF_TRUSTED_ORIGINS**: set absolute name or wildcards  
+```py
+ALLOWED_HOSTS = ['web-production-3640.up.railway.app', '127.0.0.1']
+# ALLOWED_HOSTS = ['.railway.com','127.0.0.1']
+CSRF_TRUSTED_ORIGINS = ['https://web-production-3640.up.railway.app']
+# CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
+```
 
 
 # Web security
