@@ -1268,6 +1268,65 @@ App can get more info via environment variables (`DATABASE_URL`...)
 Interact with railway via site and CLI
 ### Creating repo on GitHub
 A good idea to manage "vanilla" project (before prod) in case you want to change provider.  
+### Update app for railway
+**Procfile**: commands executed to start your site  
+```
+web: python manage.py migrate && python manage.py collectstatic && gunicorn locallibrary.wsgi
+```
+**Gunicorn**: pure python http server, used to serve wsgi apps  
+install locally so that prod can use it
+```shell
+pip install gunicorn
+```
+**Database config**: can't use sqlite on most PaaS  
+*dj-database-url*: used to extract db config from env
+```shell
+pip install dj-database-url
+```
+*Add in settings.py*: use config if `DATABASE_URL` is set
+```py
+import dj_database_url
+db_from_env = dj_database_url.config(conn_max_age=500)
+DATABASES['default'].update(db_from_env)
+```
+*psycopg2*: posgresql driver
+```shell
+pip3 install psycopg2-binary
+```
+
+**Serving static files**: it's not efficient to use django to serve files  
+- `STATIC_URL`: base url from which static files will be served
+- `STATIC_ROOT`: absolute path to where django `collectstatic` will gather all static files to
+- `STATICFILES_DIRS`: list dirs `collectstatic` should search for 
+  how does static files in nested (with same name) dirs work?
+
+```py
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = '/static/'
+```
+**Whitenoise**: easiest, serve from gunicorn  
+```shell
+pip install whitenoise
+```
+add middleware and options in `settings.py`
+```py
+MIDDLEWARE = [
+  'django.middleware.security.SecurityMiddleware',
+  'whitenoise.middleware.WhiteNoiseMiddleware',
+  ...
+]
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+```
+**Freeze requirements**: 
+```shell
+pip3 freeze > requirements.txt
+```
+**Runtime**: runtime.txt, check hosting provider
+```
+python-3.11.2
+```
+
+### Deploy on railway
 
 
 
