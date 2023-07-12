@@ -1216,6 +1216,59 @@ There's no test for way to test HTML output.
 
 
 # Deploying
+## Prod env
+- hardware
+- operating system
+- programming language
+- web server
+- application server
+- database
+- reverse proxy, load balancer...
+
+**Iaas** (Infrastructure as a service): computer in the cloud  
+preinstall OS, but other components need to be installed manually
+
+**PasS** (Platform as a service): scaling, components are taken care of  
+but versions of tools and runtimes may be older 
+
+## Choose hosting provider
+- expected resources needed
+- scaling, how easy/expensive
+- hosts' uptime, performance
+- tools to manage, monitor server
+- benefits (SSL cert.)
+- whether moving from free to paid is more expensive than choosing paid to begin with!!
+
+## Getting site ready to publish
+use environment variables for `DEBUG` & `SECRET_KEY`  
+```py
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-y0fk5#j()t=8x8ik0b&%g!4@9d(%_1991_0adc2!iyw6fh%j6#')
+
+DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
+# always True unless set DEBUG env to False
+```
+Deployment checklist: 
+```shell
+py manage.py check --deploy
+```
+
+## Example install Locallibrary on Railway
+### Why railway
+must redeploy once a month (free-tier)
+### How railway works
+web apps run in isolated, virtualized container(?)
+- runtime.txt: states programming langauge & version
+- requirements.txt: lists python dependencies
+- Procfile: lists processes to be executed to start web app
+  gunicorn for python
+- wsgi.py: WSGI config, spec showing how server and app should communicate(?)
+
+App can get more info via environment variables (`DATABASE_URL`...)
+
+Interact with railway via site and CLI
+### Creating repo on GitHub
+A good idea to manage "vanilla" project (before prod) in case you want to change provider.  
+
 
 
 # Web security
